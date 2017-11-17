@@ -133,6 +133,19 @@ def pretty_print_assignments(assignments, config):
     for giver, getter in assignments.iteritems():
         print "%s will give to %s." % (config[PARTICIPANTS_KEY][giver][PARTICIPANT_NAME_KEY], config[PARTICIPANTS_KEY][getter][PARTICIPANT_NAME_KEY])
 
+def generate_administrator_email_message(assignment_uuid, assignments_by_name, administrator_email):
+    subject = "Secret Santa Assignments (%s)" % assignment_uuid
+
+    content = ''
+    for giver, getter in assignments_by_name.iteritems():
+        content += "%s will give to %s.\r\n" % (giver, getter)
+    message = email.mime.text.MIMEText(content)
+    message['From'] = administrator_email
+    message['To'] = administrator_email
+    message['Subject'] = subject
+
+    return message
+
 def send_assignment_emails(assignments, config):
     administrator_email = config[ADMINISTRATOR_EMAIL_KEY]
     administrator_password = config[ADMINISTRATOR_EMAIL_PASSWORD_KEY]
@@ -142,17 +155,29 @@ def send_assignment_emails(assignments, config):
     server.login(administrator_email, administrator_password)
 
     try:
-        subject = "Alert: Secret Santa Assignment (%s)" % str(uuid.uuid4())
+        # global unique identifier for this set of assignments
+        assignment_uuid = str(uuid.uuid4())
+        subject = "Alert: Secret Santa Assignment (%s)" % assignment_uuid
 
+        # send emails to each participant
+        assignments_by_name = {}
         for giver, getter in assignments.iteritems():
+            giver_name = config[PARTICIPANTS_KEY][giver][PARTICIPANT_NAME_KEY]
+            getter_name = config[PARTICIPANTS_KEY][getter][PARTICIPANT_NAME_KEY]
+            assignments_by_name[giver_name] = getter_name
+
             recipient_email = config[PARTICIPANTS_KEY][giver][PARTICIPANT_EMAIL_KEY]
-            content = "%s will give to %s." % (config[PARTICIPANTS_KEY][giver][PARTICIPANT_NAME_KEY], config[PARTICIPANTS_KEY][getter][PARTICIPANT_NAME_KEY])
+            content = "%s will give to %s." % (giver_name, getter_name)
 
             message = email.mime.text.MIMEText(content)
             message['From'] = administrator_email
             message['To'] = recipient_email
             message['Subject'] = subject
             server.sendmail(administrator_email, recipient_email, message.as_string())
+
+        # send email to administrator with complete assignment mapping
+        administrator_email_message = generate_administrator_email_message(assignment_uuid, assignments_by_name, administrator_email)
+        server.sendmail(administrator_email, administrator_email, administrator_email_message.as_string())
 
     except Exception as e:
         print e
