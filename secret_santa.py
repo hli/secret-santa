@@ -60,6 +60,7 @@ PARTICIPANT_ASSIGNMENT_EXCLUSIONS_KEY = 'exclusion_ids'
 
 def parse_config_file(config_filename):
     config = {}
+    all_exclusion_ids = set()
 
     with open(config_filename, 'r') as cfg_file:
         for line_number, line in enumerate(cfg_file):
@@ -82,6 +83,7 @@ def parse_config_file(config_filename):
                 if '' in exclusion_ids:
                     exclusion_ids.remove('') # derives from empty brackets
                 exclusion_ids.add(person_id) # a person can not be assigned to themself
+                all_exclusion_ids.update(exclusion_ids)
 
                 config.setdefault(PARTICIPANTS_KEY, {})
                 if person_id in config[PARTICIPANTS_KEY]:
@@ -92,6 +94,11 @@ def parse_config_file(config_filename):
                     PARTICIPANT_EMAIL_KEY: email,
                     PARTICIPANT_ASSIGNMENT_EXCLUSIONS_KEY: exclusion_ids
                 }
+
+    all_participants = set(config[PARTICIPANTS_KEY].keys())
+    unknown_exclusion_ids = all_exclusion_ids - all_participants
+    if unknown_exclusion_ids:
+        raise Exception("Assignment exclusions reference unknown participants=(%s)." % unknown_exclusion_ids)
 
     if ADMINISTRATOR_EMAIL_KEY not in config:
         raise Exception("Missing administrator email in configuration file.")
@@ -128,8 +135,8 @@ def get_assignments(config):
 
     return assignments
 
-def pretty_print_assignments(assignments, config):
-    print "Assignment Id: %s" % str(uuid.uuid4())
+def pretty_print_assignments(assignment_uuid, assignments, config):
+    print "Assignment Id: %s" % assignment_uuid
     for giver, getter in assignments.iteritems():
         print "%s will give to %s." % (config[PARTICIPANTS_KEY][giver][PARTICIPANT_NAME_KEY], config[PARTICIPANTS_KEY][getter][PARTICIPANT_NAME_KEY])
 
@@ -146,7 +153,7 @@ def generate_administrator_email_message(assignment_uuid, assignments_by_name, a
 
     return message
 
-def send_assignment_emails(assignments, config):
+def send_assignment_emails(assignment_uuid, assignments, config):
     administrator_email = config[ADMINISTRATOR_EMAIL_KEY]
     administrator_password = config[ADMINISTRATOR_EMAIL_PASSWORD_KEY]
 
@@ -155,8 +162,6 @@ def send_assignment_emails(assignments, config):
     server.login(administrator_email, administrator_password)
 
     try:
-        # global unique identifier for this set of assignments
-        assignment_uuid = str(uuid.uuid4())
         subject = "Alert: Secret Santa Assignment (%s)" % assignment_uuid
 
         # send emails to each participant
@@ -209,7 +214,10 @@ if __name__ == '__main__':
         if not assignments:
             raise Exception("Assignment restrictions cannot be easily met; attempts=%s. Please modify the configuration file." % attempts)
 
+        # global unique identifier for this set of assignments
+        assignment_uuid = str(uuid.uuid4())
+
         if should_send_email:
-            send_assignment_emails(assignments, config)
+            send_assignment_emails(assignment_uuid, assignments, config)
         else:
-            pretty_print_assignments(assignments, config)
+            pretty_print_assignments(assignment_uuid, assignments, config)
