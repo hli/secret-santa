@@ -43,7 +43,6 @@ Example print assignments:
     name6 will give to name3.
 """
 
-import email.mime.text
 import random
 import smtplib
 import string
@@ -65,7 +64,7 @@ def parse_config_file(config_filename):
     with open(config_filename, 'r') as cfg_file:
         for line_number, line in enumerate(cfg_file):
             if line_number == 0:
-                config[ADMINISTRATOR_EMAIL_KEY] = line
+                config[ADMINISTRATOR_EMAIL_KEY] = line.strip()
             elif line_number == 1:
                 config[ADMINISTRATOR_EMAIL_PASSWORD_KEY] = line
             else:
@@ -154,11 +153,8 @@ def generate_administrator_email_message(assignment_uuid, assignments_by_name, a
     content = ''
     for giver, getter in assignments_by_name.iteritems():
         content += "%s will give to %s.\r\n" % (giver, getter)
-    message = email.mime.text.MIMEText(content)
-    message['From'] = administrator_email
-    message['To'] = administrator_email
-    message['Subject'] = subject
 
+    message = 'Subject: {}\n\n{}'.format(subject, content)
     return message
 
 def send_assignment_emails(assignment_uuid, assignments, config, email_content):
@@ -185,15 +181,14 @@ def send_assignment_emails(assignment_uuid, assignments, config, email_content):
             if email_content:
                 content += "\r\n\r\n%s" % email_content
 
-            message = email.mime.text.MIMEText(content)
-            message['From'] = administrator_email
-            message['To'] = recipient_email
-            message['Subject'] = subject
-            server.sendmail(administrator_email, recipient_email, message.as_string())
+            message = 'Subject: {}\n\n{}'.format(subject, content)
+            server.sendmail(administrator_email, recipient_email, message)
+            print "Sent assignment to %s." % recipient_email
 
         # send email to administrator with complete assignment mapping
         administrator_email_message = generate_administrator_email_message(assignment_uuid, assignments_by_name, administrator_email)
-        server.sendmail(administrator_email, administrator_email, administrator_email_message.as_string())
+        server.sendmail(administrator_email, administrator_email, administrator_email_message)
+        print "Sent all assignments to %s." % administrator_email
 
     except Exception as e:
         print e
