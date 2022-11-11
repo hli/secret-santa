@@ -1,0 +1,1 @@
+This message would appear below the actual secret santa assignment in the email.
