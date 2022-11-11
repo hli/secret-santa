@@ -2,21 +2,21 @@
 Script to generate and email secret santa assignments.
 
 To generate and send emails (additional email content optional):
-    usage: python secret_santa.py config_filename [email_content_filename]
+    usage: python3 secret_santa.py config_filename [email_content_filename]
 
 To generate and print output without sending emails:
-    usage: python secret_santa.py -p config_filename
+    usage: python3 secret_santa.py -p config_filename
 
 Config format:
     administrator_gmail
-    administrator_gmail_password
+    administrator_gmail_generated_app_password
     person_id, name, email, (assignment_exclusions)
     person_id, name, email, (assignment_exclusions)
     ...
 
 Example config:
     administrator@gmail.com
-    myGmailPassword
+    myGmailGeneratedAppPassword
     person_id1, name1, abcd@email.com, (person_id2; person_id3)
     person_id2, name2, abce@email.com, (person_id1; person_id3)
     person_id3, name3, abcf@email.com, (person_id1; person_id2)
@@ -34,7 +34,7 @@ Assumptions:
     1) a person can not be assigned to themself (this does not need to be configured)
 
 Example print assignments:
-    Assignment Id: fc9512d0-127f-4c96-a49f-9578fdf9697f
+    Assignment Id: 21f7d68
     name1 will give to name4.
     name3 will give to name5.
     name2 will give to name6.
@@ -45,10 +45,10 @@ Example print assignments:
 
 import random
 import smtplib
-import string
 import sys
 import uuid
 
+MAX_ASSIGNMENT_UUID_LENGTH = 7
 MAX_ASSIGNMENT_ATTEMPTS = 3
 ADMINISTRATOR_EMAIL_KEY = 'administrator_email'
 ADMINISTRATOR_EMAIL_PASSWORD_KEY = 'administrator_email_password'
@@ -71,14 +71,14 @@ def parse_config_file(config_filename):
                 if not line.strip():
                     continue
 
-                person_id, name, email, assignment_exclusions = map(string.strip, line.split(','))
+                person_id, name, email, assignment_exclusions = map(str.strip, line.split(','))
 
                 # check exclusion formatting
                 if not assignment_exclusions or assignment_exclusions[0] != '(' or assignment_exclusions[-1] != ')':
                     raise Exception("assignment_exclusions=(%s) is not formatted with parentheses in the configuration." % assignment_exclusions)
 
                 # extract exclusions within parentheses as set
-                exclusion_ids = set(map(string.strip, assignment_exclusions[1:-1].split(';')))
+                exclusion_ids = set(map(str.strip, assignment_exclusions[1:-1].split(';')))
                 if '' in exclusion_ids:
                     exclusion_ids.remove('') # derives from empty parentheses
                 exclusion_ids.add(person_id) # a person can not be assigned to themself
@@ -135,9 +135,9 @@ def get_assignments(config):
     return assignments
 
 def pretty_print_assignments(assignment_uuid, assignments, config):
-    print "Assignment Id: %s" % assignment_uuid
-    for giver, getter in assignments.iteritems():
-        print "%s will give to %s." % (config[PARTICIPANTS_KEY][giver][PARTICIPANT_NAME_KEY], config[PARTICIPANTS_KEY][getter][PARTICIPANT_NAME_KEY])
+    print("Assignment Id: %s" % assignment_uuid)
+    for giver, getter in assignments.items():
+        print("%s will give to %s." % (config[PARTICIPANTS_KEY][giver][PARTICIPANT_NAME_KEY], config[PARTICIPANTS_KEY][getter][PARTICIPANT_NAME_KEY]))
 
 def get_email_content(email_content_filename):
     if email_content_filename:
@@ -151,7 +151,7 @@ def generate_administrator_email_message(assignment_uuid, assignments_by_name, a
     subject = "Secret Santa Assignments (%s)" % assignment_uuid
 
     content = ''
-    for giver, getter in assignments_by_name.iteritems():
+    for giver, getter in assignments_by_name.items():
         content += "%s will give to %s.\r\n" % (giver, getter)
 
     message = 'Subject: {}\n\n{}'.format(subject, content)
@@ -171,7 +171,7 @@ def send_assignment_emails(assignment_uuid, assignments, config, email_content):
 
         # send emails to each participant
         assignments_by_name = {}
-        for giver, getter in assignments.iteritems():
+        for giver, getter in assignments.items():
             giver_name = config[PARTICIPANTS_KEY][giver][PARTICIPANT_NAME_KEY]
             getter_name = config[PARTICIPANTS_KEY][getter][PARTICIPANT_NAME_KEY]
             assignments_by_name[giver_name] = getter_name
@@ -183,23 +183,23 @@ def send_assignment_emails(assignment_uuid, assignments, config, email_content):
 
             message = 'Subject: {}\n\n{}'.format(subject, content)
             server.sendmail(administrator_email, recipient_email, message)
-            print "Sent assignment to %s." % recipient_email
+            print("Sent assignment to %s." % recipient_email)
 
         # send email to administrator with complete assignment mapping
         administrator_email_message = generate_administrator_email_message(assignment_uuid, assignments_by_name, administrator_email)
         server.sendmail(administrator_email, administrator_email, administrator_email_message)
-        print "Sent all assignments to %s." % administrator_email
+        print("Sent all assignments to %s." % administrator_email)
 
     except Exception as e:
-        print e
+        print(e)
         raise Exception('Failed to send all e-mails successfully.')
     finally:
         server.quit()
 
 if __name__ == '__main__':
     if len(sys.argv) not in [2, 3]:
-        print "To generate and send emails:\n\tusage: python %s config_filename [email_content_filename]" % sys.argv[0]
-        print "To generate and print output without emails:\n\tusage: python %s -p config_filename" % sys.argv[0]
+        print("To generate and send emails:\n\tusage: python %s config_filename [email_content_filename]" % sys.argv[0])
+        print("To generate and print output without emails:\n\tusage: python %s -p config_filename" % sys.argv[0])
         exit(1)
     else:
         if len(sys.argv) == 2:
@@ -226,7 +226,7 @@ if __name__ == '__main__':
             raise Exception("Assignment restrictions cannot be easily met; attempts=%s. Please modify the configuration file." % attempts)
 
         # global unique identifier for this set of assignments
-        assignment_uuid = str(uuid.uuid4())
+        assignment_uuid = str(uuid.uuid4().hex[:MAX_ASSIGNMENT_UUID_LENGTH])
 
         if should_send_email:
             email_content = get_email_content(email_content_filename)
