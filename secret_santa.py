@@ -198,8 +198,8 @@ def send_assignment_emails(assignment_uuid, assignments, config, email_content):
 
 if __name__ == '__main__':
     if len(sys.argv) not in [2, 3]:
-        print("To generate and send emails:\n\tusage: python %s config_filename [email_content_filename]" % sys.argv[0])
-        print("To generate and print output without emails:\n\tusage: python %s -p config_filename" % sys.argv[0])
+        print("To generate and send emails:\n\tusage: python3 %s config_filename [email_content_filename]" % sys.argv[0])
+        print("To generate and print output without emails:\n\tusage: python3 %s -p config_filename" % sys.argv[0])
         exit(1)
     else:
         if len(sys.argv) == 2:
